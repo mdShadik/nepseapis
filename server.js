@@ -5,15 +5,16 @@ const stockRoutes = require('./routes/stockRoutes');
 const floorsheetRoutes = require('./routes/floorsheetRoutes');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const port = process.env.PORT || 3000;
 
 // Use routes
 app.use('/stocks', stockRoutes);
 app.use('/floorsheet', floorsheetRoutes);
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+app.listen(port, '0.0.0.0', () => {
+    console.log(`Server is running on port ${port}`);
+  });
+  
 
 /*
 Directory Structure:
