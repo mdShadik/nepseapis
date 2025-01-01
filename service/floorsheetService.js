@@ -8,8 +8,12 @@ exports.fetchBrokersAnalyticsData = async (symbol, tab) => {
 
   try {
     await page.goto(BROKERS_ANALYTICS_URL, { waitUntil: 'domcontentloaded' });
+
     await page.fill('input[placeholder="Filter Symbols"]', symbol);
-    await page.waitForTimeout(500);
+
+    await page.waitForSelector('.q-table__middle.scroll table.q-table tbody tr', { visible: true, timeout: 10000 });
+
+    await page.waitForTimeout(3000);
 
     if (tab) {      
       await page.click(`div.q-tab__label:has-text("Top ${tab}")`);
