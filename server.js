@@ -5,7 +5,7 @@ const stockRoutes = require('./routes/stockRoutes');
 const floorsheetRoutes = require('./routes/floorsheetRoutes');
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 10000;
 
 // Use routes
 app.use('/stocks', stockRoutes);

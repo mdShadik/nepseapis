@@ -17,7 +17,7 @@ COPY . .
 RUN npx playwright install --with-deps
 
 # Expose the port (if running a web server, adjust accordingly)
-EXPOSE 3000
+EXPOSE 10000
 
 # Command to run your app or Playwright tests
 CMD [ "npm", "start" ]  # Example command for running Playwright tests
