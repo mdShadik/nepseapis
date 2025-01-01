@@ -8,11 +8,17 @@ const app = express();
 const port = 10000;
 
 // Configure CORS
-app.use(cors({
-    origin: 'http://localhost:3000/',
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true,
-}));
+app.use(cors());
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', '*'); // Replace with your frontend URL
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+  }
+  next();
+});
 
 // Use routes
 app.use('/stocks', stockRoutes);
