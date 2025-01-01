@@ -20,4 +20,4 @@ RUN npx playwright install --with-deps
 EXPOSE 10000
 
 # Command to run your app or Playwright tests
-CMD [ "npm", "start" ]  # Example command for running Playwright tests
+CMD [ "node", "server.js" ]  # Example command for running Playwright tests
