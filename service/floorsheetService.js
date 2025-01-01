@@ -1,6 +1,6 @@
 const { chromium } = require('playwright'); // Use Playwright for browser automation
 
-const BROKERS_ANALYTICS_URL = process.env.BROKER_URL;
+const BROKERS_ANALYTICS_URL = "https://chukul.com/brokers-analytics";
 
 exports.fetchBrokersAnalyticsData = async (symbol, tab) => {
   const browser = await chromium.launch({ headless: true });

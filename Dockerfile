@@ -1,28 +1,23 @@
-# Use the official Playwright image with necessary dependencies
-FROM mcr.microsoft.com/playwright:v1.49.1-noble
+# Use an official Node.js runtime as a parent image
+FROM mcr.microsoft.com/playwright:v1.34.0-focal
 
-# Set environment variables
-ENV PORT=3000
-ENV SHARE_SANSAR_URL=https://www.sharesansar.com/live-trading
-ENV BROKER_URL=https://chukul.com/brokers-analytics
+# Set the working directory in the container
+WORKDIR /usr/src/app
 
-# Set the working directory to the root of the project
-WORKDIR /app
-
-# Copy package.json and package-lock.json (if available)
+# Copy the package.json and package-lock.json
 COPY package*.json ./
 
 # Install dependencies
 RUN npm install
 
-# Copy the rest of the application code
+# Copy the rest of the app's source code
 COPY . .
 
-# Expose the port your application will run on
+# Install Playwright browsers (make sure you add the specific ones you need, or just use the full set)
+RUN npx playwright install --with-deps
+
+# Expose the port (if running a web server, adjust accordingly)
 EXPOSE 3000
 
-# Ensure Playwright is installed and the browsers are available
-RUN npx playwright install
-
-# Command to start the application
-CMD ["npm", "start"]
+# Command to run your app or Playwright tests
+CMD [ "npm", "start" ]  # Example command for running Playwright tests

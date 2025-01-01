@@ -2,7 +2,7 @@
 const axios = require('axios');
 const cheerio = require('cheerio');
 
-const URL = process.env.SHARE_SANSAR_URL;
+const URL = "https://www.sharesansar.com/live-trading";
 
 async function fetchStockData() {
   try {
