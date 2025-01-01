@@ -13,10 +13,13 @@ exports.fetchBrokersAnalyticsData = async (symbol, tab) => {
 
     await page.waitForSelector('.q-table__middle.scroll table.q-table tbody tr', { visible: true, timeout: 10000 });
 
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(500);
 
-    if (tab) {      
+    if (tab) {
+      await page.waitForSelector('.q-tab__label', { visible: true });
+      
       await page.click(`div.q-tab__label:has-text("Top ${tab}")`);
+
       await page.waitForTimeout(500);
 
       const topSoldData = await page.evaluate(() => {
