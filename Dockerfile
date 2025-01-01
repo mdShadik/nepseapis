@@ -6,8 +6,8 @@ ENV PORT=3000
 ENV SHARE_SANSAR_URL=https://www.sharesansar.com/live-trading
 ENV BROKER_URL=https://chukul.com/brokers-analytics
 
-# Set the working directory
-WORKDIR /usr/src/app
+# Set the working directory to the root of the project
+WORKDIR /app
 
 # Copy package.json and package-lock.json (if available)
 COPY package*.json ./
@@ -20,6 +20,9 @@ COPY . .
 
 # Expose the port your application will run on
 EXPOSE 3000
+
+# Ensure Playwright is installed and the browsers are available
+RUN npx playwright install
 
 # Command to start the application
 CMD ["npm", "start"]
