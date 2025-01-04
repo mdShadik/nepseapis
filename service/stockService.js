@@ -1,6 +1,7 @@
 // services/stockService.js
 const axios = require('axios');
 const cheerio = require('cheerio');
+const { databases, ID, Query } = require('../config/db');
 
 const URL = "https://www.sharesansar.com/live-trading";
 

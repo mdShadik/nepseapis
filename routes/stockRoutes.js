@@ -1,6 +1,6 @@
 
 const express = require('express');
-const { getAllStocks, getStockBySymbol } = require('../controller/stockController');
+const { getAllStocks, getStockBySymbol} = require('../controller/stockController');
 
 const router = express.Router();
 
