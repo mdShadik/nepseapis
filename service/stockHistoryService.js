@@ -12,9 +12,44 @@ const createStockHistoryService = async (req) => {
             throw new Error('Database ID or Collection ID is missing');
         }
 
-        const promises = data.map(async (document) => {
-            return databases.createDocument(dbId, collectionId, ID.unique(), document);
-        });
+        const currentTime = new Date();
+        const currentHour = currentTime.getHours();
+        const currentMinutes = currentTime.getMinutes();
+
+        const isBeforeStartTime = currentHour < 15 || (currentHour === 15 && currentMinutes < 30);
+        const isAfterEndTime = currentHour === 23 && currentMinutes > 59;
+
+        if (isBeforeStartTime || isAfterEndTime) {
+            return {
+                success: false,
+                message: 'Service remains closed till 3:00 PM',
+            };
+        }
+
+        const today = new Date();
+        const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
+        const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+
+        const existingRecords = await databases.listDocuments(dbId, collectionId, [
+            Query.greaterThanEqual('$createdAt', startOfDay),
+            Query.lessThanEqual('$createdAt', endOfDay),
+        ]);
+
+        const existingSymbols = new Set(
+            existingRecords.documents.map((doc) => doc.symbol)
+        );
+
+        const filteredData = data.filter(
+            (entry) => entry.symbol !== 'Total' && !existingSymbols.has(entry.symbol)
+        );
+
+        if (filteredData.length === 0) {
+            return { success: true, message: 'No new data to add. All symbols already exist for today or are excluded.' };
+        }
+
+        const promises = filteredData.map((document) =>
+            databases.createDocument(dbId, collectionId, ID.unique(), document)
+        );
 
         const results = await Promise.all(promises);
 
@@ -24,6 +59,7 @@ const createStockHistoryService = async (req) => {
         return { success: false, error: error.message };
     }
 };
+
 
 const getStockHistoryService = async (req) => {
     const { seller, limit = 10, page = 1, date, symbol } = req.query;
