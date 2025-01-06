@@ -1,4 +1,5 @@
 require('dotenv').config();
+const { DateTime } = require('luxon');
 const { databases, Query, ID } = require('../config/db');
 
 const createStockHistoryService = async (req) => {
@@ -12,23 +13,23 @@ const createStockHistoryService = async (req) => {
             throw new Error('Database ID or Collection ID is missing');
         }
 
-        const currentTime = new Date();
-        const currentHour = currentTime.getHours();
-        const currentMinutes = currentTime.getMinutes();
+        const currentTime = DateTime.now().setZone('Asia/Kolkata');
+        const currentHour = currentTime.hour;
+        const currentMinutes = currentTime.minute;
 
-        const isBeforeStartTime = currentHour < 15 || (currentHour === 15 && currentMinutes < 30);
-        const isAfterEndTime = currentHour === 23 && currentMinutes > 59;
+        const isBeforeStartTime = currentHour < 15 || (currentHour === 15 && currentMinutes < 15);
+        const isAfterEndTime = currentHour === 23 && currentMinutes > 44;
 
         if (isBeforeStartTime || isAfterEndTime) {
             return {
                 success: false,
-                message: 'Service remains closed till 3:00 PM',
+                message: 'Service remains closed till 3:30 PM NPT',
             };
         }
 
-        const today = new Date();
-        const startOfDay = new Date(today.setHours(0, 0, 0, 0)).toISOString();
-        const endOfDay = new Date(today.setHours(23, 59, 59, 999)).toISOString();
+        const today = currentTime.startOf('day');
+        const startOfDay = today.toISO();
+        const endOfDay = today.endOf('day').toISO();
 
         const existingRecords = await databases.listDocuments(dbId, collectionId, [
             Query.greaterThanEqual('$createdAt', startOfDay),
@@ -61,6 +62,7 @@ const createStockHistoryService = async (req) => {
 };
 
 
+
 const getStockHistoryService = async (req) => {
     const { seller, limit = 10, page = 1, date, symbol } = req.query;
     try {
@@ -74,11 +76,12 @@ const getStockHistoryService = async (req) => {
         const filters = [];
 
         if (date) {
-            const targetDate = new Date(date);
-            const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0)).toISOString();
-            const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999)).toISOString();
-            filters.push(Query.greaterThanEqual('$createdAt', startOfDay))
-            filters.push(Query.lessThanEqual('$createdAt', endOfDay))
+            const targetDate = DateTime.fromISO(date, { zone: 'Asia/Kolkata' });
+            const startOfDayUTC = targetDate.startOf('day').toUTC().toISO();
+            const endOfDayUTC = targetDate.endOf('day').toUTC().toISO();
+
+            filters.push(Query.greaterThanEqual('$createdAt', startOfDayUTC));
+            filters.push(Query.lessThanEqual('$createdAt', endOfDayUTC));
         }
 
         if (symbol) {
@@ -105,6 +108,7 @@ const getStockHistoryService = async (req) => {
         return { success: false, error: error.message };
     }
 };
+
 
 const deleteStockHistoryById = async (req) => {
     const { id, seller } = req.query;
@@ -147,7 +151,7 @@ const deleteStockHistoryByDateAndSymbol = async (req) => {
 
         const targetDate = new Date(date);
         const startOfDay = new Date(targetDate.setHours(0, 0, 0, 0)).toISOString();
-        const endOfDay = new Date(targetDate.setHours(23, 59, 59, 999)).toISOString();
+        const endOfDay = new Date(targetDate.setHours(23, 44, 59, 999)).toISOString();
 
         const documents = await databases.listDocuments(dbId, collectionId, [
             Query.greaterThanEqual('$createdAt', startOfDay),
