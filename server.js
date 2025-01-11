@@ -6,6 +6,7 @@ const floorsheetRoutes = require('./routes/floorsheetRoutes');
 const historyRoutes = require('./routes/stockHistoryRoutes');
 const watchlistRoute = require('./routes/watchlistRoutes');
 const authRoutes = require('./routes/authRoutes');
+const purchaseRoutes = require('./routes/purchaseRoutes');
 const authValidation = require('./middleware/authMiddleware');
 
 const app = express();
@@ -14,7 +15,7 @@ const port = 10000;
 app.use(express.json());
 app.use(cors());
 app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', '*'); // Replace with your frontend URL
+  res.setHeader('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -24,12 +25,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// Use routes
 app.use('/stocks', authValidation, stockRoutes);
 app.use('/floorsheet', authValidation, floorsheetRoutes)
 app.use('/history', authValidation, historyRoutes);
 app.use('/watchlist', authValidation, watchlistRoute);
 app.use('/auth', authRoutes);
+app.use('/purchase', authValidation, purchaseRoutes);
 
 
 app.listen(port, '0.0.0.0', () => {
