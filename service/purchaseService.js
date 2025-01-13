@@ -6,112 +6,76 @@ const { calculateCharges } = require('../common/calculateCharges');
 
 
 async function holdStocksServices(req) {
-    const { symbol, quantity, rate, date } = req.body;
+    const { symbol, quantity, rate, date, totalAmount } = req.body;
 
-    if (!symbol || !quantity || !rate) {
+    // Validate required fields
+    if (!symbol || !quantity || !rate || !totalAmount) {
         return { message: 'Missing required fields.' };
     }
 
     const databaseId = process.env.APPWRITE_DB_ID;
     const holdingCollectionId = process.env.APPWRITE_HOLDING_TABLE;
     const activityCollectionId = process.env.APPWRITE_ACTIVITY_TABLE;
+
+    // Calculate amount and charges
     const amount = parseFloat(quantity) * parseFloat(rate);
+    const charges = parseFloat(totalAmount) - amount;
+    const avgRate = (parseFloat(totalAmount) / parseFloat(quantity)).toFixed(2)
+
+    // Validate calculations
+    if (charges < 0) {
+        return { message: 'Invalid total amount. It must be greater than or equal to the calculated amount.' };
+    }
+
+    // Determine date and time
     const currentTime = date
         ? DateTime.fromISO(date).setZone('Asia/Kolkata')
         : DateTime.now().setZone('Asia/Kolkata');
-    const today = currentTime.startOf('day');
-    const startOfDay = today.toISO();
-    const endOfDay = today.endOf('day').toISO();
     const localTime = currentTime.toISO();
 
     try {
-        // Check if the symbol already exists in the holdings
+        // Check if the stock already exists in holdings
         const existingStock = await databases.listDocuments(databaseId, holdingCollectionId, [
             Query.equal('symbol', symbol),
         ]);
-
-        let totalQuantity,
-            totalAmount,
-            avgRate,
-            sebonCharge,
-            dpCharge,
-            commission,
-            totalCharges,
-            updatedSebon,
-            updatedDp,
-            updatedCommission,
-            updatedTotalCharges;
 
         if (existingStock.documents.length > 0) {
             // Update existing stock
             const stock = existingStock.documents[0];
             const prevQuantity = parseFloat(stock.quantity);
             const prevAmount = parseFloat(stock.amount);
-            const prevSebonCharge = parseFloat(stock.sebon_charges) || 0;
-            const prevDpCharge = parseFloat(stock.dp_charges) || 0;
-            const prevCommission = parseFloat(stock.broker_commission) || 0;
-            const prevTotalCharges = parseFloat(stock.total_charges) || 0;
+            const prevCharges = parseFloat(stock.total_charges);
+            const prevTotalAmount = parseFloat(stock.total_amount);
 
-            // Calculate updated values
-            totalQuantity = prevQuantity + parseFloat(quantity);
-            totalAmount = prevAmount + amount;
-            avgRate = totalAmount / totalQuantity;
+            // Update values
+            const updatedQuantity = (prevQuantity + parseFloat(quantity)).toString();
+            const updatedAmount = (prevAmount + amount).toFixed(2);
+            const updatedCharges = (prevCharges + charges).toFixed(2);
+            const updatedTotalAmount = (prevTotalAmount + parseFloat(totalAmount)).toFixed(2);
+            const updatedRate = (parseFloat(updatedAmount) / parseFloat(updatedQuantity)).toFixed(2);
+            const updatedAvgRate = (parseFloat(updatedTotalAmount) / parseFloat(updatedQuantity)).toFixed(2);
 
-            // Recalculate new charges for the current transaction
-            ({ sebonCharge, dpCharge, commission, totalCharges } = await calculateCharges(
-                symbol,
-                amount,
-                startOfDay,
-                endOfDay,
-                holdingCollectionId
-            ));
-
-            // Update charges by adding new charges to previous charges
-            updatedSebon = prevSebonCharge + sebonCharge;
-            updatedDp = prevDpCharge + dpCharge;
-            updatedCommission = prevCommission + commission;
-            updatedTotalCharges = prevTotalCharges + totalCharges;
-
-            // Update stock document
+            // Update the document in the database
             await databases.updateDocument(databaseId, holdingCollectionId, stock.$id, {
-                quantity: totalQuantity.toString(),
-                rate: avgRate.toFixed(2),
-                total_amount: (totalAmount + updatedTotalCharges).toFixed(2),
-                total_charges: updatedTotalCharges.toFixed(2),
-                amount: totalAmount.toFixed(2),
+                quantity: updatedQuantity.toString(),
+                rate: updatedRate.toString(),
+                amount: updatedAmount.toString(),
+                total_charges: updatedCharges.toString(),
+                total_amount: updatedTotalAmount.toString(),
+                avg_rate: updatedAvgRate.toString(),
                 date: localTime,
-                broker_commission: updatedCommission.toFixed(2),
-                sebon_charges: updatedSebon.toFixed(2),
-                dp_charges: updatedDp.toFixed(2),
             });
         } else {
-            // Add new stock
-            ({ sebonCharge, dpCharge, commission, totalCharges } = await calculateCharges(
-                symbol,
-                amount,
-                startOfDay,
-                endOfDay,
-                holdingCollectionId
-            ));
-
-            totalQuantity = parseFloat(quantity);
-            totalAmount = amount;
-            updatedSebon = sebonCharge;
-            updatedDp = dpCharge;
-            updatedCommission = commission;
-            updatedTotalCharges = totalCharges;
-
+            // Create a new stock entry
             await databases.createDocument(databaseId, holdingCollectionId, ID.unique(), {
                 symbol,
-                quantity: totalQuantity.toString(),
-                rate: parseFloat(rate).toFixed(2),
-                total_amount: (totalAmount + totalCharges).toFixed(2),
-                total_charges: totalCharges.toFixed(2),
-                amount: totalAmount.toFixed(2),
+                quantity: parseFloat(quantity).toString(),
+                rate: parseFloat(rate).toFixed(2).toString(),
+                avg_rate: avgRate.toString(),
+                amount: amount.toFixed(2).toString(),
+                total_charges: charges.toFixed(2).toString(),
+                total_amount: parseFloat(totalAmount).toFixed(2).toString(),
                 date: localTime,
-                broker_commission: commission.toFixed(2),
-                sebon_charges: sebonCharge.toFixed(2),
-                dp_charges: dpCharge.toFixed(2),
             });
         }
 
@@ -120,31 +84,24 @@ async function holdStocksServices(req) {
             symbol,
             type: 'buy',
             quantity: parseFloat(quantity).toString(),
-            rate: parseFloat(rate).toFixed(2),
-            amount: amount.toFixed(2),
-            charges: totalCharges.toFixed(2),
-            total: (amount + totalCharges).toFixed(2),
+            rate: parseFloat(rate).toFixed(2).toString(),
+            avg_rate: parseFloat(avgRate).toFixed(2).toString(),
+            amount: amount.toFixed(2).toString(),
+            charges: charges.toFixed(2).toString(),
+            total_amount: parseFloat(totalAmount).toFixed(2).toString(),
             date: localTime,
         });
 
         return {
             success: true,
             message: 'Stock added/updated in holdings and activity log updated.',
-            data: {
-                sebonCharge: parseInt(updatedSebon).toFixed(2),
-                dpCharge: parseInt(updatedDp).toFixed(2),
-                commission: parseInt(updatedCommission).toFixed(2),
-                totalCharges: parseInt(updatedTotalCharges).toFixed(2),
-                totalAmount: parseInt(totalAmount + updatedTotalCharges).toFixed(2),
-                totalQuantity: parseInt(totalQuantity).toString(),
-                avgRate: parseInt(avgRate).toFixed(2),
-            },
         };
     } catch (error) {
         console.error('Error adding/updating stock:', error);
         return { message: 'Error adding/updating stock.' };
     }
 }
+
 
 const getholdingsService = async (req) => {
     const { limit = 10, page = 1, date, symbol } = req.query;
@@ -176,6 +133,7 @@ const getholdingsService = async (req) => {
 
         const documents = await databases.listDocuments(dbId, holdingCollectionId, [
             ...filters,
+            Query.orderDesc('$createdAt'),
             Query.limit(parseInt(limit, 10)),
             Query.offset(offset),
         ]);
@@ -195,9 +153,9 @@ const getholdingsService = async (req) => {
 };
 
  const sellStocksServices = async (req, res) => {
-    const { symbol, sellQuantity, sellRate } = req.body;
+    const { symbol, sellQuantity, sellRate, totalSellAmount } = req.body;
 
-    if (!symbol || !sellQuantity || !sellRate) {
+    if (!symbol || !sellQuantity || !sellRate || !totalSellAmount) {
         return { message: 'Missing required fields.' };
     }
 
@@ -227,72 +185,59 @@ const getholdingsService = async (req) => {
 
         const stock = stockResponse.documents[0];
         const quantity = parseFloat(stock.quantity);
-        const amount = parseFloat(stock.amount);
-        const rate = parseFloat(stock.rate);
+        const totalAmount = parseFloat(stock.total_amount);
+        const avgRate = parseFloat(stock.avg_rate);
+        const avgSellRate = (parseFloat(totalSellAmount) / parseFloat(sellQuantity)).toFixed(2)
 
 
-        if (sellQuantity > quantity) {
+        if (parseFloat(sellQuantity) > parseFloat(quantity)) {
             return { message: 'Insufficient quantity to sell.' };
         }
 
-        // Calculate charges
-        const { sebonCharge, dpCharge, commission, totalCharges } =
-        await calculateCharges(
-            symbol,
-            amount,
-            startOfDay,
-            endOfDay,
-            activityCollectionId,
-            "sell"
-        );
+        const totalActualAmount = parseFloat(sellQuantity) * parseFloat(sellRate);
+        let totalActualCharges = parseFloat(totalSellAmount) - parseFloat(totalActualAmount)
 
-        const sellAmount = sellQuantity * sellRate + totalCharges;
+        if (totalActualCharges < 0) {
+            totalActualCharges *= -1
+        }
 
+        const totalAverageAmount = avgRate * parseFloat(sellQuantity)
 
+        const profitOrLoss = parseFloat(totalSellAmount) - totalAverageAmount;
+        const profitOrLossPercentage = (profitOrLoss / totalAverageAmount) * 100;
 
-        // Calculate profit or loss
-        const buyAmount = rate * sellQuantity;
-        const profitOrLoss = sellAmount - buyAmount;
-        const profitOrLossPercentage = (profitOrLoss / buyAmount) * 100;
-
-        // Update or remove the stock in the main table
-        if (sellQuantity === quantity) {
-            // Remove the stock if fully sold
+        if (parseInt(sellQuantity) === parseInt(quantity)) {
             await databases.deleteDocument(databaseId, holdingCollectionId, stock.$id);
         } else {
-            // Update the stock with remaining quantity
-            const remainingQuantity = quantity - sellQuantity;
-            const remainingAmount = remainingQuantity * rate;
+            const remainingQuantity = parseInt(quantity) - parseInt(sellQuantity);
 
             await databases.updateDocument(databaseId, holdingCollectionId, stock.$id, {
                 quantity: remainingQuantity.toString(),
-                // amount: remainingAmount,
             });
         }
 
-        // Add to activity log
         await databases.createDocument(databaseId, activityCollectionId, ID.unique(), {
             symbol,
             type: 'sell',
             quantity: sellQuantity.toString(),
-            rate: sellRate.toString(),
-            amount: sellAmount.toString(),
-            charges: totalCharges.toString(),
-            total: (sellAmount - totalCharges).toString(),
-            pl_amount: profitOrLoss.toString(),
-            pl_rate: profitOrLossPercentage.toString(),
+            rate: parseFloat(sellRate).toFixed(2).toString(),
+            avg_rate: parseFloat(avgSellRate).toString(),
+            amount: parseFloat(totalActualAmount).toFixed(2).toString(),
+            charges: parseFloat(totalActualCharges).toFixed(2).toString(),
+            total_amount: parseFloat(totalSellAmount).toFixed(2).toString(),
+            pl_amount: parseFloat(profitOrLoss).toFixed(2).toString(),
+            pl_rate: parseFloat(profitOrLossPercentage).toFixed(2).toString(),
             date: localTime,
         });
 
         return {
             message: 'Stock sold successfully.',
-            profitOrLoss,
-            profitOrLossPercentage,
-            sebonCharge,
-            dpCharge,
-            commission,
-            totalCharges,
-            total: (sellAmount - totalCharges)
+            success: true,
+            data: {
+                profitOrLoss: parseFloat(profitOrLoss).toFixed(2),
+                profitOrLossPercentage: parseFloat(profitOrLossPercentage).toFixed(2),
+                totalCharges: parseFloat(totalActualCharges).toFixed(2),
+            }
         };
     } catch (error) {
         console.error('Error selling stock:', error);
@@ -334,6 +279,7 @@ const getActivityService = async (req) => {
 
         const documents = await databases.listDocuments(dbId, activityCollectionId, [
             ...filters,
+            Query.orderDesc('$createdAt'),
             Query.limit(parseInt(limit, 10)),
             Query.offset(offset),
         ]);
