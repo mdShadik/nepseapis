@@ -1,4 +1,4 @@
-const { holdStocksServices, getholdingsService, sellStocksServices, getActivityService } = require("../service/purchaseService");
+const { holdStocksServices, getholdingsService, sellStocksServices, getActivityService, updateStockDetailsService, getUnrealizedProfitLossService } = require("../service/purchaseService");
 
   async function purchaseStocksController(req, res) {
     try {
@@ -36,11 +36,30 @@ const { holdStocksServices, getholdingsService, sellStocksServices, getActivityS
     }
   }
 
+  async function updateStockDetailsController(req, res) {
+    try {
+      const updateLtp = await updateStockDetailsService(req);
+      res.json(updateLtp);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  async function getUnrealizedProfitLossController(req, res) {
+    try {
+      const data = await getUnrealizedProfitLossService(req);
+      res.json(data);
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    }
+  }
   
   module.exports = {
     purchaseStocksController,
     getholdingsController,
     soldStocksController,
-    getActivityController
+    getActivityController,
+    updateStockDetailsController,
+    getUnrealizedProfitLossController
   };
   

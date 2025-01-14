@@ -1,31 +1,15 @@
 const { databases, ID, Query } = require('../config/db');
 
 
-async function calculateCharges(symbol, amount, startOfDay, endOfDay, collectionId, type) {
+async function calculateCharges(amount, isDpCharged) {
 
-    const databaseId = process.env.APPWRITE_DB_ID;
     const sebonCharge = amount * 0.00015;
 
     let dpCharge = 0;
 
-    const query = [
-        Query.equal('symbol', symbol),
-        Query.greaterThanEqual('date', startOfDay),
-        Query.lessThanEqual('date', endOfDay),
-    ]
-
-    if(type && type ==="sell"){
-        query.push(
-            Query.equal('type', type),
-        )
-    }
-    const existingStocks = await databases.listDocuments(databaseId, collectionId, query );
-
-
-    if (existingStocks.documents.length === 0) {
+    if (isDpCharged) {
         dpCharge = 25;
     }
-
 
     let commission = 0;
     if (amount <= 2500) {
