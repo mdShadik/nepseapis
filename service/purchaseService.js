@@ -2,7 +2,7 @@
 const axios = require('axios');
 const { databases, ID, Query } = require('../config/db');
 const { DateTime } = require('luxon');
-const { calculateCharges } = require('../common/calculateCharges');
+const { calculateCharges, calculateCharges2 } = require('../common/calculateCharges');
 const { fetchStockData } = require('./stockService');
 
 
@@ -200,6 +200,7 @@ const getholdingsService = async (req) => {
         const quantity = parseFloat(stock.quantity);
         const totalAmount = parseFloat(stock.total_amount);
         const avgRate = parseFloat(stock.avg_rate);
+        const rate = parseFloat(stock.rate);
 
         if (parseFloat(sellQuantity) > parseFloat(quantity)) {
             return { message: 'Insufficient quantity to sell.' };
@@ -240,9 +241,13 @@ const getholdingsService = async (req) => {
             await databases.deleteDocument(databaseId, holdingCollectionId, stock.$id);
         } else {
             const remainingQuantity = parseInt(quantity) - parseInt(sellQuantity);
+            const totalUpdatedAmountAC = remainingQuantity * avgRate;
+            const totalUpdatedAmountWithOutAC = remainingQuantity * rate;
 
             await databases.updateDocument(databaseId, holdingCollectionId, stock.$id, {
                 quantity: remainingQuantity.toString(),
+                total_amount: totalUpdatedAmountAC.toFixed(2).toString(),
+                amount: totalUpdatedAmountWithOutAC.toFixed(2).toString(),
             });
         }
 
@@ -400,6 +405,12 @@ async function getUnrealizedProfitLossService() {
             const avgRate = parseFloat(holding.avg_rate);
             const quantity = parseFloat(holding.quantity);
 
+            const sellingAmount = ltp * quantity;
+            let {totalCharges} = calculateCharges2(sellingAmount, true);
+            const actualSP = sellingAmount - totalCharges;
+            const costPrice = avgRate * quantity;
+            const profitAmount = actualSP - costPrice;
+            const profitPercentage = (profitAmount / costPrice) * 100;        
             const unrealizedProfitLoss = (ltp - avgRate) * quantity;
             const unrealizedPercentage = ((ltp - avgRate) / avgRate) * 100;
 
@@ -410,6 +421,8 @@ async function getUnrealizedProfitLossService() {
                 ltp: ltp.toFixed(2),
                 unrealized_profit_loss: unrealizedProfitLoss.toFixed(2),
                 unrealized_percentage: unrealizedPercentage.toFixed(2),
+                actual_pl: profitAmount.toFixed(2),
+                actual_pl_percentage: profitPercentage.toFixed(2),
             };
         });
 
