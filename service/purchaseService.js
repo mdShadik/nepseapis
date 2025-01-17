@@ -219,16 +219,24 @@ const getholdingsService = async (req) => {
             totalCharges2 *= -1;
         }
 
+
+        let capitalGainTaxRate = 0;
+        if(isBelowOneYear){
+            capitalGainTaxRate = 7.5;
+        }else {
+            capitalGainTaxRate = 5;
+        }
         const totalPaidAmount = parseFloat(avgRate) * sellQuantity;
 
         const remainingAmount = parseFloat(totalActualAmount) - parseFloat(totalCharges2)
         const netGain = remainingAmount - totalPaidAmount;
-        const totalAverageAmount = parseFloat(avgRate) * parseFloat(sellQuantity)
 
-        let capitalGainTaxRate = 5;
-        if(isBelowOneYear){
-            capitalGainTaxRate = 7.5;
+        if(netGain < 0) { 
+            capitalGainTaxRate = 0;
         }
+
+        const totalAverageAmount = parseFloat(avgRate) * parseFloat(sellQuantity)
+   
 
         const capitalGainTax = (parseFloat(capitalGainTaxRate) * netGain) / 100
         const totalReceivableAmount = remainingAmount - capitalGainTax;
@@ -414,6 +422,15 @@ async function getUnrealizedProfitLossService() {
             const unrealizedProfitLoss = (ltp - avgRate) * quantity;
             const unrealizedPercentage = ((ltp - avgRate) / avgRate) * 100;
 
+            let actualProfitAmount = profitAmount;
+            let actualProfitPercentage = profitPercentage;
+            if(profitAmount > 0 ){
+                actualProfitAmount = profitAmount - ((7.5 * profitAmount) / 100);
+                actualProfitPercentage = (actualProfitAmount / costPrice) * 100;
+            }
+
+            console.log({ actualProfitAmount, actualProfitPercentage})
+
             return {
                 symbol: holding.symbol,
                 quantity: quantity.toFixed(2),
@@ -421,8 +438,8 @@ async function getUnrealizedProfitLossService() {
                 ltp: ltp.toFixed(2),
                 unrealized_profit_loss: unrealizedProfitLoss.toFixed(2),
                 unrealized_percentage: unrealizedPercentage.toFixed(2),
-                actual_pl: profitAmount.toFixed(2),
-                actual_pl_percentage: profitPercentage.toFixed(2),
+                actual_pl: actualProfitAmount.toFixed(2),
+                actual_pl_percentage: actualProfitPercentage.toFixed(2),
             };
         });
 
