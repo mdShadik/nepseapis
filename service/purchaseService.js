@@ -429,8 +429,6 @@ async function getUnrealizedProfitLossService() {
                 actualProfitPercentage = (actualProfitAmount / costPrice) * 100;
             }
 
-            console.log({ actualProfitAmount, actualProfitPercentage})
-
             return {
                 symbol: holding.symbol,
                 quantity: quantity.toFixed(2),
