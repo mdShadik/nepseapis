@@ -453,51 +453,52 @@ async function getUnrealizedProfitLossService() {
 }
 
 async function getPortfolioSummaryService() {
-    const databaseId = process.env.APPWRITE_DB_ID;
-    const holdingCollectionId = process.env.APPWRITE_HOLDING_TABLE;
-
     try {
-        // Fetch all holdings
-        const holdings = await databases.listDocuments(databaseId, holdingCollectionId);
+        // Get unrealized profit/loss data for each stock
+        const unrealizedPLResponse = await getUnrealizedProfitLossService();
+        
+        if (!unrealizedPLResponse.success) {
+            return unrealizedPLResponse; // Return error response if the first function fails
+        }
 
-        if (holdings.documents.length === 0) {
+        const holdings = unrealizedPLResponse.data;
+
+        if (holdings.length === 0) {
             return { 
                 success: true, 
                 message: 'No holdings found.', 
                 data: {
                     totalInvestment: 0,
-                    totalAverageAmount: 0,
                     profitLossAmount: 0,
                     profitLossPercentage: 0,
                 }
             };
         }
 
-        // Initialize variables
+        // Initialize portfolio-level variables
         let totalInvestment = 0;
-        let totalAverageAmount = 0;
+        let totalProfitLoss = 0;
 
-        // Calculate total investment and total average amount
-        holdings.documents.forEach(holding => {
-            const totalAmount = parseFloat(holding.total_amount); // Total investment for this holding
-            const ltp = parseFloat(holding.ltp); // Latest trading price
-            const quantity = parseFloat(holding.quantity); // Quantity of stocks
-
-            totalInvestment += totalAmount;
-            totalAverageAmount += ltp * quantity;
+        // Sum up all stocks' data
+        holdings.forEach(holding => {
+            const avgRate = parseFloat(holding.avg_rate);
+            const quantity = parseFloat(holding.quantity);
+            const costPrice = avgRate * quantity; // Total investment for this holding
+            const actualPL = parseFloat(holding.actual_pl); // Actual profit/loss after charges
+            
+            totalInvestment += costPrice;
+            totalProfitLoss += actualPL;
         });
 
-        // Calculate profit/loss
-        const profitLossAmount = totalAverageAmount - totalInvestment;
-        const profitLossPercentage = (profitLossAmount / totalInvestment) * 100;
+        // Calculate total profit/loss percentage
+        const profitLossPercentage = totalInvestment !== 0 ? (totalProfitLoss / totalInvestment) * 100 : 0;
 
         return {
             success: true,
             message: 'Portfolio summary calculated successfully.',
             data: {
                 totalInvestment: totalInvestment.toFixed(2),
-                totalAverageAmount: totalAverageAmount.toFixed(2),
-                profitLossAmount: profitLossAmount.toFixed(2),
+                profitLossAmount: totalProfitLoss.toFixed(2),
                 profitLossPercentage: profitLossPercentage.toFixed(2),
             },
         };
@@ -509,8 +510,6 @@ async function getPortfolioSummaryService() {
         };
     }
 }
-
-
 
 module.exports = { 
     holdStocksServices,
